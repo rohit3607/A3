@@ -101,30 +101,28 @@ async def gen_ss_sam(hash, filename, log):
     except Exception as err:
         log.error(str(err))
 
-# Check user subscription in channels in a more optimized way
+# Check user subscription in Channels in a more optimized way
 async def is_subscribed(filter, client, update):
-    channel_ids = await db.get_all_channels()
+    Channel_ids = await db.get_all_channels()
 
-    if not channel_ids:
-        return True  # No forced subscription required
+    if not Channel_ids:
+        return True
 
     user_id = update.from_user.id
 
-    # Allow owner and admins to bypass subscription check
-    if user_id == user_id in Var.ADMINS:
+    if any([user_id == OWNER_ID, await db.admin_exist(user_id)]):
         return True
 
-    # Handle the case for a single channel directly
-    if len(channel_ids) == 1:
-        return await is_userJoin(client, user_id, channel_ids[0])
+    # Handle the case for a single channel directly (no need for gather)
+    if len(Channel_ids) == 1:
+        return await is_userJoin(client, user_id, Channel_ids[0])
 
-    # Use asyncio.gather to check multiple channels concurrently
-    tasks = [is_userJoin(client, user_id, channel_id) for channel_id in channel_ids if channel_id]
+    # Use asyncio gather to check multiple channels concurrently
+    tasks = [is_userJoin(client, user_id, ids) for ids in Channel_ids if ids]
     results = await asyncio.gather(*tasks)
 
-    # Return True only if the user is subscribed to ALL required channels
+    # If any result is False, return False; else return True
     return all(results)
-
 
 
 #Chcek user subscription by specifying channel id and user id
@@ -144,6 +142,7 @@ async def is_userJoin(client, user_id, channel_id):
         print(f"!Error on is_userJoin(): {e}")
         return False
 
+subscribed = filters.create(is_subscribed)
 #=============================================================================================================================================================================#
 
-#subscribed = filters.create(is_subscribed)
+
